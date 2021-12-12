@@ -1,6 +1,7 @@
+//go:build linux || darwin || dragonfly || solaris || openbsd || netbsd || freebsd
 // +build linux darwin dragonfly solaris openbsd netbsd freebsd
 
-package terminal
+package vt10x
 
 import (
 	"bufio"
@@ -11,7 +12,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/zyedidia/pty"
+	"github.com/creack/pty"
 )
 
 // VT represents the virtual terminal emulator.
@@ -25,12 +26,12 @@ type VT struct {
 // Start initializes a virtual terminal emulator with the target state
 // and a new pty file by starting the *exec.Command. The returned
 // *os.File is the pty file.
-func Start(state *State, cmd *exec.Cmd, buf *bytes.Buffer) (*VT, *os.File, error) {
+func Start(state *State, cmd *exec.Cmd) (*VT, *os.File, error) {
 	var err error
 	t := &VT{
 		dest: state,
 	}
-	t.pty, err = pty.Start(cmd, buf)
+	t.pty, err = pty.Start(cmd)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -54,8 +55,8 @@ func (t *VT) init() {
 	t.br = bufio.NewReader(t.rc)
 	t.dest.numlock = true
 	t.dest.state = t.dest.parse
-	t.dest.cur.attr.fg = DefaultFG
-	t.dest.cur.attr.bg = DefaultBG
+	t.dest.Cur.Attr.Fg = DefaultFG
+	t.dest.Cur.Attr.Bg = DefaultBG
 	t.Resize(80, 24)
 	t.dest.reset()
 }

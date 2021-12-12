@@ -10,7 +10,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/zyedidia/terminal"
+	"github.com/fdidron/vt10x"
 )
 
 func filterESC(r io.Reader) io.Reader {
@@ -37,7 +37,7 @@ func filterESC(r io.Reader) io.Reader {
 	return pr
 }
 
-func update(term *terminal.VT, state *terminal.State, w, h int) {
+func update(term *vt10x.VT, state *vt10x.State, w, h int) {
 	termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
 	for i := 0; i < h+2; i++ {
 		termbox.SetCell(0, i, '│', termbox.ColorDefault, termbox.ColorDefault)
@@ -99,9 +99,9 @@ func main() {
 	// kernel panic if we termbox.Init() first! But, only when the process is
 	// terminated in some way. Crazy. If this was more than a debug app it
 	// might be worth looking more into.
-	var state terminal.State
+	var state vt10x.State
 	cmd := exec.Command(os.Getenv("SHELL"), "-i")
-	term, pty, err := terminal.Start(&state, cmd, nil)
+	term, pty, err := vt10x.Start(&state, cmd)
 	if err != nil {
 		panic(err)
 	}

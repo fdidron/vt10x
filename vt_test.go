@@ -1,4 +1,4 @@
-package terminal
+package vt10x
 
 import (
 	"io"
@@ -39,7 +39,7 @@ func TestNewline(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := "Hello world!\n...and more."
-	_, err = term.Write([]byte("\033[20h")) // set CRLF mode
+	_, err = term.Write([]byte("\033[20h")) // set CRLF Mode
 	if err != nil && err != io.EOF {
 		t.Fatal(err)
 	}
@@ -65,6 +65,6 @@ func TestNewline(t *testing.T) {
 	}
 	_, fg, bg := st.Cell(st.Cursor())
 	if fg != DefaultFG {
-		t.Fatal(st.cur.x, st.cur.y, fg, bg)
+		t.Fatal(st.Cur.x, st.Cur.y, fg, bg)
 	}
 }

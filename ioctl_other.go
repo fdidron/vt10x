@@ -1,6 +1,7 @@
+//go:build plan9 || nacl || windows
 // +build plan9 nacl windows
 
-package terminal
+package vt10x
 
 import (
 	"os"

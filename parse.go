@@ -1,4 +1,4 @@
-package terminal
+package vt10x
 
 func isControlCode(c rune) bool {
 	return c < 0x20 || c == 0177
@@ -6,27 +6,27 @@ func isControlCode(c rune) bool {
 
 func (t *State) parse(c rune) {
 	if isControlCode(c) {
-		if t.handleControlCodes(c) || t.cur.attr.mode&attrGfx == 0 {
+		if t.handleControlCodes(c) || t.Cur.Attr.Mode&attrGfx == 0 {
 			return
 		}
 	}
-	// TODO: update selection; see st.c:2450
+	// TODO: update selection; see st.Char:2450
 
-	if t.mode&ModeWrap != 0 && t.cur.state&cursorWrapNext != 0 {
-		t.lines[t.cur.y][t.cur.x].mode |= attrWrap
+	if t.mode&ModeWrap != 0 && t.Cur.state&cursorWrapNext != 0 {
+		t.lines[t.Cur.y][t.Cur.x].Mode |= attrWrap
 		t.newline(true)
 	}
 
-	if t.mode&ModeInsert != 0 && t.cur.x+1 < t.cols {
-		// TODO: move shiz, look at st.c:2458
-		t.logln("insert mode not implemented")
+	if t.mode&ModeInsert != 0 && t.Cur.x+1 < t.cols {
+		// TODO: move shiz, look at st.Char:2458
+		t.logln("insert Mode not implemented")
 	}
 
-	t.setChar(c, &t.cur.attr, t.cur.x, t.cur.y)
-	if t.cur.x+1 < t.cols {
-		t.moveTo(t.cur.x+1, t.cur.y)
+	t.setChar(c, &t.Cur.Attr, t.Cur.x, t.Cur.y)
+	if t.Cur.x+1 < t.cols {
+		t.moveTo(t.Cur.x+1, t.Cur.y)
 	} else {
-		t.cur.state |= cursorWrapNext
+		t.Cur.state |= cursorWrapNext
 	}
 }
 
@@ -54,20 +54,20 @@ func (t *State) parseEsc(c rune) {
 		'*', // set tertiary charset G2 (ignored)
 		'+': // set quaternary charset G3 (ignored)
 	case 'D': // IND - linefeed
-		if t.cur.y == t.bottom {
+		if t.Cur.y == t.bottom {
 			t.ScrollUp(t.top, 1)
 		} else {
-			t.moveTo(t.cur.x, t.cur.y+1)
+			t.moveTo(t.Cur.x, t.Cur.y+1)
 		}
 	case 'E': // NEL - next line
 		t.newline(true)
 	case 'H': // HTS - horizontal tab stop
-		t.tabs[t.cur.x] = true
+		t.tabs[t.Cur.x] = true
 	case 'M': // RI - reverse index
-		if t.cur.y == t.top {
+		if t.Cur.y == t.top {
 			t.ScrollDown(t.top, 1)
 		} else {
-			t.moveTo(t.cur.x, t.cur.y-1)
+			t.moveTo(t.Cur.x, t.Cur.y-1)
 		}
 	case 'Z': // DECID - identify terminal
 		// TODO: write to our writer our id
@@ -77,13 +77,13 @@ func (t *State) parseEsc(c rune) {
 		t.mode |= ModeAppKeypad
 	case '>': // DECPNM - normal keypad
 		t.mode &^= ModeAppKeypad
-	case '7': // DECSC - save cursor
+	case '7': // DECSC - save Cursor
 		t.saveCursor()
-	case '8': // DECRC - restore cursor
+	case '8': // DECRC - restore Cursor
 		t.restoreCursor()
 	case '\\': // ST - stop
 	default:
-		t.logf("unknown ESC sequence '%c'\n", c)
+		t.logf("unknown ESC sequence '%Char'\n", c)
 	}
 	t.state = next
 }
@@ -126,16 +126,16 @@ func (t *State) parseEscAltCharset(c rune) {
 	}
 	switch c {
 	case '0': // line drawing set
-		t.cur.attr.mode |= attrGfx
+		t.Cur.Attr.Mode |= attrGfx
 	case 'B': // USASCII
-		t.cur.attr.mode &^= attrGfx
+		t.Cur.Attr.Mode &^= attrGfx
 	case 'A', // UK (ignored)
 		'<', // multinational (ignored)
 		'5', // Finnish (ignored)
 		'C', // Finnish (ignored)
 		'K': // German (ignored)
 	default:
-		t.logf("unknown alt. charset '%c'\n", c)
+		t.logf("unknown alt. charset '%Char'\n", c)
 	}
 	t.state = t.parse
 }
@@ -148,7 +148,7 @@ func (t *State) parseEscTest(c rune) {
 	if c == '8' {
 		for y := 0; y < t.rows; y++ {
 			for x := 0; x < t.cols; x++ {
-				t.setChar('E', &t.cur.attr, x, y)
+				t.setChar('E', &t.Cur.Attr, x, y)
 			}
 		}
 	}
@@ -165,13 +165,13 @@ func (t *State) handleControlCodes(c rune) bool {
 		t.putTab(true)
 	// BS
 	case '\b':
-		t.moveTo(t.cur.x-1, t.cur.y)
+		t.moveTo(t.Cur.x-1, t.Cur.y)
 	// CR
 	case '\r':
-		t.moveTo(0, t.cur.y)
+		t.moveTo(0, t.Cur.y)
 	// LF, VT, LF
 	case '\f', '\v', '\n':
-		// go to first col if mode is set
+		// go to first col if Mode is set
 		t.newline(t.mode&ModeCRLF != 0)
 	// BEL
 	case '\a':

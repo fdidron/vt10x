@@ -1,4 +1,4 @@
-package terminal
+package vt10x
 
 import (
 	"strconv"
@@ -88,7 +88,7 @@ func (t *State) handleSTR() {
 		// '_': // APC - application program command
 		// '^': // PM - privacy message
 
-		t.logf("unhandled STR sequence '%c'\n", s.typ)
+		t.logf("unhandled STR sequence '%Char'\n", s.typ)
 		// t.str.dump()
 	}
 }

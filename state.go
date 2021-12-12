@@ -1,4 +1,4 @@
-package terminal
+package vt10x
 
 import (
 	"log"
@@ -25,7 +25,7 @@ const (
 	cursorOrigin
 )
 
-// ModeFlag represents various terminal mode states.
+// ModeFlag represents various terminal Mode states.
 type ModeFlag uint32
 
 // Terminal modes
@@ -61,16 +61,16 @@ const (
 	ChangedTitle
 )
 
-type glyph struct {
-	c      rune
-	mode   int16
-	fg, bg Color
+type Glyph struct {
+	Char   rune
+	Mode   int16
+	Fg, Bg Color
 }
 
-type line []glyph
+type Line []Glyph
 
-type cursor struct {
-	attr  glyph
+type Cursor struct {
+	Attr  Glyph
 	x, y  int
 	state uint8
 }
@@ -85,11 +85,11 @@ type State struct {
 	mu            sync.Mutex
 	changed       ChangeFlag
 	cols, rows    int
-	lines         []line
-	altLines      []line
+	lines         []Line
+	altLines      []Line
 	dirty         []bool // line dirtiness
 	anydirty      bool
-	cur, curSaved cursor
+	Cur, curSaved Cursor
 	top, bottom   int // scroll limits
 	mode          ModeFlag
 	state         parseState
@@ -134,20 +134,28 @@ func (t *State) Unlock() {
 // Cell returns the character code, foreground color, and background
 // color at position (x, y) relative to the top left of the terminal.
 func (t *State) Cell(x, y int) (ch rune, fg Color, bg Color) {
-	return t.lines[y][x].c, Color(t.lines[y][x].fg), Color(t.lines[y][x].bg)
+	return t.lines[y][x].Char, Color(t.lines[y][x].Fg), Color(t.lines[y][x].Bg)
 }
 
-// Cursor returns the current position of the cursor.
+func (t *State) Lines() []Line {
+	return t.lines
+}
+
+func (t *State) Dirtyness() []bool {
+	return t.dirty
+}
+
+// Cursor returns the current position of the Cursor.
 func (t *State) Cursor() (int, int) {
-	return t.cur.x, t.cur.y
+	return t.Cur.x, t.Cur.y
 }
 
-// CursorVisible returns the visible state of the cursor.
+// CursorVisible returns the visible state of the Cursor.
 func (t *State) CursorVisible() bool {
 	return t.mode&ModeHide == 0
 }
 
-// Mode tests if mode is currently set.
+// Mode tests if Mode is currently set.
 func (t *State) Mode(mode ModeFlag) bool {
 	return t.mode&mode != 0
 }
@@ -179,12 +187,12 @@ func (t *State) resetChanges() {
 }
 
 func (t *State) saveCursor() {
-	t.curSaved = t.cur
+	t.curSaved = t.Cur
 }
 
 func (t *State) restoreCursor() {
-	t.cur = t.curSaved
-	t.moveTo(t.cur.x, t.cur.y)
+	t.Cur = t.curSaved
+	t.moveTo(t.Cur.x, t.Cur.y)
 }
 
 func (t *State) put(c rune) {
@@ -192,7 +200,7 @@ func (t *State) put(c rune) {
 }
 
 func (t *State) putTab(forward bool) {
-	x := t.cur.x
+	x := t.Cur.x
 	if forward {
 		if x == t.cols {
 			return
@@ -206,23 +214,23 @@ func (t *State) putTab(forward bool) {
 		for x--; x > 0 && !t.tabs[x]; x-- {
 		}
 	}
-	t.moveTo(x, t.cur.y)
+	t.moveTo(x, t.Cur.y)
 }
 
 func (t *State) newline(firstCol bool) {
-	y := t.cur.y
+	y := t.Cur.y
 	if y == t.bottom {
-		cur := t.cur
-		t.cur = t.defaultCursor()
+		cur := t.Cur
+		t.Cur = t.defaultCursor()
 		t.ScrollUp(t.top, 1)
-		t.cur = cur
+		t.Cur = cur
 	} else {
 		y++
 	}
 	if firstCol {
 		t.moveTo(0, y)
 	} else {
-		t.moveTo(t.cur.x, y)
+		t.moveTo(t.Cur.x, y)
 	}
 }
 
@@ -238,8 +246,8 @@ var gfxCharTable = [62]rune{
 	'│', '≤', '≥', 'π', '≠', '£', '·', // x - ~
 }
 
-func (t *State) setChar(c rune, attr *glyph, x, y int) {
-	if attr.mode&attrGfx != 0 {
+func (t *State) setChar(c rune, attr *Glyph, x, y int) {
+	if attr.Mode&attrGfx != 0 {
 		if c >= 0x41 && c <= 0x7e && gfxCharTable[c-0x41] != 0 {
 			c = gfxCharTable[c-0x41]
 		}
@@ -247,26 +255,26 @@ func (t *State) setChar(c rune, attr *glyph, x, y int) {
 	t.changed |= ChangedScreen
 	t.dirty[y] = true
 	t.lines[y][x] = *attr
-	t.lines[y][x].c = c
-	//if t.options.BrightBold && attr.mode&attrBold != 0 && attr.fg < 8 {
-	if attr.mode&attrBold != 0 && attr.fg < 8 {
-		t.lines[y][x].fg = attr.fg + 8
+	t.lines[y][x].Char = c
+	//if t.options.BrightBold && Attr.Mode&attrBold != 0 && Attr.Fg < 8 {
+	if attr.Mode&attrBold != 0 && attr.Fg < 8 {
+		t.lines[y][x].Fg = attr.Fg + 8
 	}
-	if attr.mode&attrReverse != 0 {
-		t.lines[y][x].fg = attr.bg
-		t.lines[y][x].bg = attr.fg
+	if attr.Mode&attrReverse != 0 {
+		t.lines[y][x].Fg = attr.Bg
+		t.lines[y][x].Bg = attr.Fg
 	}
 }
 
-func (t *State) defaultCursor() cursor {
-	c := cursor{}
-	c.attr.fg = DefaultFG
-	c.attr.bg = DefaultBG
+func (t *State) defaultCursor() Cursor {
+	c := Cursor{}
+	c.Attr.Fg = DefaultFG
+	c.Attr.Bg = DefaultBG
 	return c
 }
 
 func (t *State) reset() {
-	t.cur = t.defaultCursor()
+	t.Cur = t.defaultCursor()
 	t.saveCursor()
 	for i := range t.tabs {
 		t.tabs[i] = false
@@ -289,15 +297,15 @@ func (t *State) resize(cols, rows int) bool {
 	if cols < 1 || rows < 1 {
 		return false
 	}
-	slide := t.cur.y - rows + 1
+	slide := t.Cur.y - rows + 1
 	if slide > 0 {
 		copy(t.lines, t.lines[slide:slide+rows])
 		copy(t.altLines, t.altLines[slide:slide+rows])
 	}
 
 	lines, altLines, tabs := t.lines, t.altLines, t.tabs
-	t.lines = make([]line, rows)
-	t.altLines = make([]line, rows)
+	t.lines = make([]Line, rows)
+	t.altLines = make([]Line, rows)
 	t.dirty = make([]bool, rows)
 	t.tabs = make([]bool, cols)
 
@@ -306,8 +314,8 @@ func (t *State) resize(cols, rows int) bool {
 	t.changed |= ChangedScreen
 	for i := 0; i < rows; i++ {
 		t.dirty[i] = true
-		t.lines[i] = make(line, cols)
-		t.altLines[i] = make(line, cols)
+		t.lines[i] = make(Line, cols)
+		t.altLines[i] = make(Line, cols)
 	}
 	for i := 0; i < minrows; i++ {
 		copy(t.lines[i], lines[i])
@@ -327,7 +335,7 @@ func (t *State) resize(cols, rows int) bool {
 	t.cols = cols
 	t.rows = rows
 	t.setScroll(0, rows-1)
-	t.moveTo(t.cur.x, t.cur.y)
+	t.moveTo(t.Cur.x, t.Cur.y)
 	for i := 0; i < 2; i++ {
 		if mincols < cols && minrows > 0 {
 			t.clear(mincols, 0, cols-1, minrows-1)
@@ -355,8 +363,8 @@ func (t *State) clear(x0, y0, x1, y1 int) {
 	for y := y0; y <= y1; y++ {
 		t.dirty[y] = true
 		for x := x0; x <= x1; x++ {
-			t.lines[y][x] = t.cur.attr
-			t.lines[y][x].c = ' '
+			t.lines[y][x] = t.Cur.Attr
+			t.lines[y][x].Char = ' '
 		}
 	}
 }
@@ -366,7 +374,7 @@ func (t *State) clearAll() {
 }
 
 func (t *State) moveAbsTo(x, y int) {
-	if t.cur.state&cursorOrigin != 0 {
+	if t.Cur.state&cursorOrigin != 0 {
 		y += t.top
 	}
 	t.moveTo(x, y)
@@ -374,7 +382,7 @@ func (t *State) moveAbsTo(x, y int) {
 
 func (t *State) moveTo(x, y int) {
 	var miny, maxy int
-	if t.cur.state&cursorOrigin != 0 {
+	if t.Cur.state&cursorOrigin != 0 {
 		miny = t.top
 		maxy = t.bottom
 	} else {
@@ -384,9 +392,9 @@ func (t *State) moveTo(x, y int) {
 	x = clamp(x, 0, t.cols-1)
 	y = clamp(y, miny, maxy)
 	t.changed |= ChangedScreen
-	t.cur.state &^= cursorWrapNext
-	t.cur.x = x
-	t.cur.y = y
+	t.Cur.state &^= cursorWrapNext
+	t.Cur.x = x
+	t.Cur.y = y
 }
 
 func (t *State) swapScreen() {
@@ -480,7 +488,7 @@ func (t *State) setMode(priv bool, set bool, args []int) {
 	if priv {
 		for _, a := range args {
 			switch a {
-			case 1: // DECCKM - cursor key
+			case 1: // DECCKM - Cursor key
 				t.modMode(set, ModeAppCursor)
 			case 5: // DECSCNM - reverse video
 				mode := t.mode
@@ -490,9 +498,9 @@ func (t *State) setMode(priv bool, set bool, args []int) {
 				}
 			case 6: // DECOM - origin
 				if set {
-					t.cur.state |= cursorOrigin
+					t.Cur.state |= cursorOrigin
 				} else {
-					t.cur.state &^= cursorOrigin
+					t.Cur.state &^= cursorOrigin
 				}
 				t.moveAbsTo(0, 0)
 			case 7: // DECAWM - auto wrap
@@ -506,11 +514,11 @@ func (t *State) setMode(priv bool, set bool, args []int) {
 				18, // DECPFF - printer feed
 				19, // DECPEX - printer extent
 				42, // DECNRCM - national characters
-				12: // att610 - start blinking cursor
+				12: // att610 - start blinking Cursor
 				break
-			case 25: // DECTCEM - text cursor enable mode
+			case 25: // DECTCEM - text Cursor enable Mode
 				t.modMode(!set, ModeHide)
-			case 9: // X10 mouse compatibility mode
+			case 9: // X10 mouse compatibility Mode
 				t.modMode(false, ModeMouseMask)
 				t.modMode(set, ModeMouseX10)
 			case 1000: // report button press
@@ -524,7 +532,7 @@ func (t *State) setMode(priv bool, set bool, args []int) {
 				t.modMode(set, ModeMouseMany)
 			case 1004: // send focus events to tty
 				t.modMode(set, ModeFocus)
-			case 1006: // extended reporting mode
+			case 1006: // extended reporting Mode
 				t.modMode(set, ModeMouseSgr)
 			case 1034:
 				t.modMode(set, Mode8bit)
@@ -548,16 +556,16 @@ func (t *State) setMode(priv bool, set bool, args []int) {
 					t.restoreCursor()
 				}
 			case 1001:
-				// mouse highlight mode; can hang the terminal by design when
+				// mouse highlight Mode; can hang the terminal by design when
 				// implemented
 			case 1005:
-				// utf8 mouse mode; will confuse applications not supporting
+				// utf8 mouse Mode; will confuse applications not supporting
 				// utf8 and luit
 			case 1015:
-				// urxvt mangled mouse mode; incompatiblt and can be mistaken
+				// urxvt mangled mouse Mode; incompatiblt and can be mistaken
 				// for other control codes
 			default:
-				t.logf("unknown private set/reset mode %d\n", a)
+				t.logf("unknown private set/reset Mode %d\n", a)
 			}
 		}
 	} else {
@@ -568,17 +576,17 @@ func (t *State) setMode(priv bool, set bool, args []int) {
 				t.modMode(set, ModeKeyboardLock)
 			case 4: // IRM - insertion-replacement
 				t.modMode(set, ModeInsert)
-				t.logln("insert mode not implemented")
+				t.logln("insert Mode not implemented")
 			case 12: // SRM - send/receive
 				t.modMode(set, ModeEcho)
 			case 20: // LNM - linefeed/newline
 				t.modMode(set, ModeCRLF)
 			case 34:
-				t.logln("right-to-left mode not implemented")
+				t.logln("right-to-left Mode not implemented")
 			case 96:
-				t.logln("right-to-left copy mode not implemented")
+				t.logln("right-to-left copy Mode not implemented")
 			default:
-				t.logf("unknown set/reset mode %d\n", a)
+				t.logf("unknown set/reset Mode %d\n", a)
 			}
 		}
 	}
@@ -592,112 +600,112 @@ func (t *State) setAttr(attr []int) {
 		a := attr[i]
 		switch a {
 		case 0:
-			t.cur.attr.mode &^= attrReverse | attrUnderline | attrBold | attrItalic | attrBlink
-			t.cur.attr.fg = DefaultFG
-			t.cur.attr.bg = DefaultBG
+			t.Cur.Attr.Mode &^= attrReverse | attrUnderline | attrBold | attrItalic | attrBlink
+			t.Cur.Attr.Fg = DefaultFG
+			t.Cur.Attr.Bg = DefaultBG
 		case 1:
-			t.cur.attr.mode |= attrBold
+			t.Cur.Attr.Mode |= attrBold
 		case 3:
-			t.cur.attr.mode |= attrItalic
+			t.Cur.Attr.Mode |= attrItalic
 		case 4:
-			t.cur.attr.mode |= attrUnderline
+			t.Cur.Attr.Mode |= attrUnderline
 		case 5, 6: // slow, rapid blink
-			t.cur.attr.mode |= attrBlink
+			t.Cur.Attr.Mode |= attrBlink
 		case 7:
-			t.cur.attr.mode |= attrReverse
+			t.Cur.Attr.Mode |= attrReverse
 		case 21, 22:
-			t.cur.attr.mode &^= attrBold
+			t.Cur.Attr.Mode &^= attrBold
 		case 23:
-			t.cur.attr.mode &^= attrItalic
+			t.Cur.Attr.Mode &^= attrItalic
 		case 24:
-			t.cur.attr.mode &^= attrUnderline
+			t.Cur.Attr.Mode &^= attrUnderline
 		case 25, 26:
-			t.cur.attr.mode &^= attrBlink
+			t.Cur.Attr.Mode &^= attrBlink
 		case 27:
-			t.cur.attr.mode &^= attrReverse
+			t.Cur.Attr.Mode &^= attrReverse
 		case 38:
 			if i+2 < len(attr) && attr[i+1] == 5 {
 				i += 2
 				if between(attr[i], 0, 255) {
-					t.cur.attr.fg = Color(attr[i])
+					t.Cur.Attr.Fg = Color(attr[i])
 				} else {
 					t.logf("bad fgcolor %d\n", attr[i])
 				}
 			} else {
-				t.logf("gfx attr %d unknown\n", a)
+				t.logf("gfx Attr %d unknown\n", a)
 			}
 		case 39:
-			t.cur.attr.fg = DefaultFG
+			t.Cur.Attr.Fg = DefaultFG
 		case 48:
 			if i+2 < len(attr) && attr[i+1] == 5 {
 				i += 2
 				if between(attr[i], 0, 255) {
-					t.cur.attr.bg = Color(attr[i])
+					t.Cur.Attr.Bg = Color(attr[i])
 				} else {
 					t.logf("bad bgcolor %d\n", attr[i])
 				}
 			} else {
-				t.logf("gfx attr %d unknown\n", a)
+				t.logf("gfx Attr %d unknown\n", a)
 			}
 		case 49:
-			t.cur.attr.bg = DefaultBG
+			t.Cur.Attr.Bg = DefaultBG
 		default:
 			if between(a, 30, 37) {
-				t.cur.attr.fg = Color(a - 30)
+				t.Cur.Attr.Fg = Color(a - 30)
 			} else if between(a, 40, 47) {
-				t.cur.attr.bg = Color(a - 40)
+				t.Cur.Attr.Bg = Color(a - 40)
 			} else if between(a, 90, 97) {
-				t.cur.attr.fg = Color(a - 90 + 8)
+				t.Cur.Attr.Fg = Color(a - 90 + 8)
 			} else if between(a, 100, 107) {
-				t.cur.attr.bg = Color(a - 100 + 8)
+				t.Cur.Attr.Bg = Color(a - 100 + 8)
 			} else {
-				t.logf("gfx attr %d unknown\n", a)
+				t.logf("gfx Attr %d unknown\n", a)
 			}
 		}
 	}
 }
 
 func (t *State) insertBlanks(n int) {
-	src := t.cur.x
+	src := t.Cur.x
 	dst := src + n
 	size := t.cols - dst
 	t.changed |= ChangedScreen
-	t.dirty[t.cur.y] = true
+	t.dirty[t.Cur.y] = true
 
 	if dst >= t.cols {
-		t.clear(t.cur.x, t.cur.y, t.cols-1, t.cur.y)
+		t.clear(t.Cur.x, t.Cur.y, t.cols-1, t.Cur.y)
 	} else {
-		copy(t.lines[t.cur.y][dst:dst+size], t.lines[t.cur.y][src:src+size])
-		t.clear(src, t.cur.y, dst-1, t.cur.y)
+		copy(t.lines[t.Cur.y][dst:dst+size], t.lines[t.Cur.y][src:src+size])
+		t.clear(src, t.Cur.y, dst-1, t.Cur.y)
 	}
 }
 
 func (t *State) insertBlankLines(n int) {
-	if t.cur.y < t.top || t.cur.y > t.bottom {
+	if t.Cur.y < t.top || t.Cur.y > t.bottom {
 		return
 	}
-	t.ScrollDown(t.cur.y, n)
+	t.ScrollDown(t.Cur.y, n)
 }
 
 func (t *State) deleteLines(n int) {
-	if t.cur.y < t.top || t.cur.y > t.bottom {
+	if t.Cur.y < t.top || t.Cur.y > t.bottom {
 		return
 	}
-	t.ScrollUp(t.cur.y, n)
+	t.ScrollUp(t.Cur.y, n)
 }
 
 func (t *State) deleteChars(n int) {
-	src := t.cur.x + n
-	dst := t.cur.x
+	src := t.Cur.x + n
+	dst := t.Cur.x
 	size := t.cols - src
 	t.changed |= ChangedScreen
-	t.dirty[t.cur.y] = true
+	t.dirty[t.Cur.y] = true
 
 	if src >= t.cols {
-		t.clear(t.cur.x, t.cur.y, t.cols-1, t.cur.y)
+		t.clear(t.Cur.x, t.Cur.y, t.cols-1, t.Cur.y)
 	} else {
-		copy(t.lines[t.cur.y][dst:dst+size], t.lines[t.cur.y][src:src+size])
-		t.clear(t.cols-n, t.cur.y, t.cols-1, t.cur.y)
+		copy(t.lines[t.Cur.y][dst:dst+size], t.lines[t.Cur.y][src:src+size])
+		t.clear(t.cols-n, t.Cur.y, t.cols-1, t.Cur.y)
 	}
 }
 

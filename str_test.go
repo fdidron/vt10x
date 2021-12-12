@@ -1,4 +1,4 @@
-package terminal
+package vt10x
 
 import (
 	"testing"

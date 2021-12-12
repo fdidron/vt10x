@@ -6,4 +6,4 @@ terminal emulation.
 
 In development, but very usable.
 */
-package terminal
+package vt10x
