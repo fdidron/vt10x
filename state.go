@@ -87,7 +87,7 @@ type State struct {
 	cols, rows    int
 	lines         []Line
 	altLines      []Line
-	dirty         []bool // line dirtiness
+	Dirty         []bool // line dirtiness
 	anydirty      bool
 	Cur, curSaved Cursor
 	top, bottom   int // scroll limits
@@ -142,7 +142,7 @@ func (t *State) Lines() []Line {
 }
 
 func (t *State) Dirtyness() []bool {
-	return t.dirty
+	return t.Dirty
 }
 
 // Cursor returns the current position of the Cursor.
@@ -179,8 +179,8 @@ func (t *State) Changed(change ChangeFlag) bool {
 
 // resetChanges resets the change mask and dirtiness.
 func (t *State) resetChanges() {
-	for i := range t.dirty {
-		t.dirty[i] = false
+	for i := range t.Dirty {
+		t.Dirty[i] = false
 	}
 	t.anydirty = false
 	t.changed = 0
@@ -253,7 +253,7 @@ func (t *State) setChar(c rune, attr *Glyph, x, y int) {
 		}
 	}
 	t.changed |= ChangedScreen
-	t.dirty[y] = true
+	t.Dirty[y] = true
 	t.lines[y][x] = *attr
 	t.lines[y][x].Char = c
 	//if t.options.BrightBold && Attr.Mode&attrBold != 0 && Attr.Fg < 8 {
@@ -306,14 +306,14 @@ func (t *State) resize(cols, rows int) bool {
 	lines, altLines, tabs := t.lines, t.altLines, t.tabs
 	t.lines = make([]Line, rows)
 	t.altLines = make([]Line, rows)
-	t.dirty = make([]bool, rows)
+	t.Dirty = make([]bool, rows)
 	t.tabs = make([]bool, cols)
 
 	minrows := min(rows, t.rows)
 	mincols := min(cols, t.cols)
 	t.changed |= ChangedScreen
 	for i := 0; i < rows; i++ {
-		t.dirty[i] = true
+		t.Dirty[i] = true
 		t.lines[i] = make(Line, cols)
 		t.altLines[i] = make(Line, cols)
 	}
@@ -361,7 +361,7 @@ func (t *State) clear(x0, y0, x1, y1 int) {
 	y1 = clamp(y1, 0, t.rows-1)
 	t.changed |= ChangedScreen
 	for y := y0; y <= y1; y++ {
-		t.dirty[y] = true
+		t.Dirty[y] = true
 		for x := x0; x <= x1; x++ {
 			t.lines[y][x] = t.Cur.Attr
 			t.lines[y][x].Char = ' '
@@ -406,7 +406,7 @@ func (t *State) swapScreen() {
 func (t *State) dirtyAll() {
 	t.changed |= ChangedScreen
 	for y := 0; y < t.rows; y++ {
-		t.dirty[y] = true
+		t.Dirty[y] = true
 	}
 }
 
@@ -456,8 +456,8 @@ func (t *State) ScrollDown(orig, n int) {
 	t.changed |= ChangedScreen
 	for i := t.bottom; i >= orig+n; i-- {
 		t.lines[i], t.lines[i-n] = t.lines[i-n], t.lines[i]
-		t.dirty[i] = true
-		t.dirty[i-n] = true
+		t.Dirty[i] = true
+		t.Dirty[i-n] = true
 	}
 
 	// TODO: selection scroll
@@ -469,8 +469,8 @@ func (t *State) ScrollUp(orig, n int) {
 	t.changed |= ChangedScreen
 	for i := orig; i <= t.bottom-n; i++ {
 		t.lines[i], t.lines[i+n] = t.lines[i+n], t.lines[i]
-		t.dirty[i] = true
-		t.dirty[i+n] = true
+		t.Dirty[i] = true
+		t.Dirty[i+n] = true
 	}
 
 	// TODO: selection scroll
@@ -670,7 +670,7 @@ func (t *State) insertBlanks(n int) {
 	dst := src + n
 	size := t.cols - dst
 	t.changed |= ChangedScreen
-	t.dirty[t.Cur.y] = true
+	t.Dirty[t.Cur.y] = true
 
 	if dst >= t.cols {
 		t.clear(t.Cur.x, t.Cur.y, t.cols-1, t.Cur.y)
@@ -699,7 +699,7 @@ func (t *State) deleteChars(n int) {
 	dst := t.Cur.x
 	size := t.cols - src
 	t.changed |= ChangedScreen
-	t.dirty[t.Cur.y] = true
+	t.Dirty[t.Cur.y] = true
 
 	if src >= t.cols {
 		t.clear(t.Cur.x, t.Cur.y, t.cols-1, t.Cur.y)
