@@ -165,6 +165,7 @@ func (t *State) handleControlCodes(c rune) bool {
 		t.putTab(true)
 	// BS
 	case '\b':
+		t.diff.BackSpace = true
 		t.moveTo(t.Cur.x-1, t.Cur.y)
 	// CR
 	case '\r':

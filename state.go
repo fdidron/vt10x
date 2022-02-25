@@ -71,6 +71,7 @@ type Line []Glyph
 
 type Cursor struct {
 	Attr  Glyph
+	Glyph Glyph
 	x, y  int
 	state uint8
 }
@@ -98,6 +99,7 @@ type State struct {
 	numlock       bool
 	tabs          []bool
 	title         string
+	diff          Diff
 }
 
 func (t *State) logf(format string, args ...interface{}) {
@@ -155,6 +157,10 @@ func (t *State) CursorVisible() bool {
 	return t.mode&ModeHide == 0
 }
 
+func (t *State) Diff() Diff {
+	return t.diff
+}
+
 // Mode tests if Mode is currently set.
 func (t *State) Mode(mode ModeFlag) bool {
 	return t.mode&mode != 0
@@ -184,6 +190,7 @@ func (t *State) resetChanges() {
 	}
 	t.anydirty = false
 	t.changed = 0
+	t.diff = NewDiff()
 }
 
 func (t *State) saveCursor() {
@@ -367,6 +374,9 @@ func (t *State) clear(x0, y0, x1, y1 int) {
 			t.lines[y][x].Char = ' '
 		}
 	}
+	if t.diff.Clear == false {
+		t.diff.Clear = true
+	}
 }
 
 func (t *State) clearAll() {
@@ -395,6 +405,7 @@ func (t *State) moveTo(x, y int) {
 	t.Cur.state &^= cursorWrapNext
 	t.Cur.x = x
 	t.Cur.y = y
+	t.Cur.Glyph = t.lines[y][x]
 }
 
 func (t *State) swapScreen() {

@@ -36,6 +36,7 @@ func Start(state *State, cmd *exec.Cmd) (*VT, *os.File, error) {
 		return nil, nil, err
 	}
 	t.rc = t.pty
+	state.diff = NewDiff()
 	t.init()
 	return t, t.pty, nil
 }
