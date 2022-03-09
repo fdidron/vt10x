@@ -73,6 +73,11 @@ func (t *State) handleSTR() {
 		case 104: // color reset
 			// TODO: complain about invalid color, redraw, etc.
 			// setcolorname(s.arg(1, 0), nil)
+
+		case 11, 112:
+			// ignoring:
+			// 11: Change background color
+			// 112: Change cursor color
 		default:
 			t.logf("unknown OSC command %d\n", d)
 			// TODO: s.dump()

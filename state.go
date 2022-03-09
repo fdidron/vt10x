@@ -59,6 +59,14 @@ type ChangeFlag uint32
 const (
 	ChangedScreen ChangeFlag = 1 << iota
 	ChangedTitle
+	ScreenResized
+	NewChar
+	CursorMoved
+	Clear
+	Backspace
+	Newline
+	ScrollUp
+	ScrollDown
 )
 
 type Glyph struct {
@@ -99,7 +107,6 @@ type State struct {
 	numlock       bool
 	tabs          []bool
 	title         string
-	diff          Diff
 }
 
 func (t *State) logf(format string, args ...interface{}) {
@@ -157,10 +164,6 @@ func (t *State) CursorVisible() bool {
 	return t.mode&ModeHide == 0
 }
 
-func (t *State) Diff() Diff {
-	return t.diff
-}
-
 // Mode tests if Mode is currently set.
 func (t *State) Mode(mode ModeFlag) bool {
 	return t.mode&mode != 0
@@ -190,7 +193,6 @@ func (t *State) resetChanges() {
 	}
 	t.anydirty = false
 	t.changed = 0
-	t.diff = NewDiff()
 }
 
 func (t *State) saveCursor() {
@@ -225,6 +227,7 @@ func (t *State) putTab(forward bool) {
 }
 
 func (t *State) newline(firstCol bool) {
+	t.changed |= Newline
 	y := t.Cur.y
 	if y == t.bottom {
 		cur := t.Cur
@@ -254,12 +257,13 @@ var gfxCharTable = [62]rune{
 }
 
 func (t *State) setChar(c rune, attr *Glyph, x, y int) {
+
 	if attr.Mode&attrGfx != 0 {
 		if c >= 0x41 && c <= 0x7e && gfxCharTable[c-0x41] != 0 {
 			c = gfxCharTable[c-0x41]
 		}
 	}
-	t.changed |= ChangedScreen
+	t.changed |= NewChar
 	t.Dirty[y] = true
 	t.lines[y][x] = *attr
 	t.lines[y][x].Char = c
@@ -318,7 +322,7 @@ func (t *State) resize(cols, rows int) bool {
 
 	minrows := min(rows, t.rows)
 	mincols := min(cols, t.cols)
-	t.changed |= ChangedScreen
+	t.changed |= ScreenResized
 	for i := 0; i < rows; i++ {
 		t.Dirty[i] = true
 		t.lines[i] = make(Line, cols)
@@ -366,16 +370,13 @@ func (t *State) clear(x0, y0, x1, y1 int) {
 	x1 = clamp(x1, 0, t.cols-1)
 	y0 = clamp(y0, 0, t.rows-1)
 	y1 = clamp(y1, 0, t.rows-1)
-	t.changed |= ChangedScreen
+	t.changed |= Clear
 	for y := y0; y <= y1; y++ {
 		t.Dirty[y] = true
 		for x := x0; x <= x1; x++ {
 			t.lines[y][x] = t.Cur.Attr
 			t.lines[y][x].Char = ' '
 		}
-	}
-	if t.diff.Clear == false {
-		t.diff.Clear = true
 	}
 }
 
@@ -401,7 +402,7 @@ func (t *State) moveTo(x, y int) {
 	}
 	x = clamp(x, 0, t.cols-1)
 	y = clamp(y, miny, maxy)
-	t.changed |= ChangedScreen
+	t.changed |= CursorMoved
 	t.Cur.state &^= cursorWrapNext
 	t.Cur.x = x
 	t.Cur.y = y
@@ -415,7 +416,7 @@ func (t *State) swapScreen() {
 }
 
 func (t *State) dirtyAll() {
-	t.changed |= ChangedScreen
+	t.changed |= NewChar
 	for y := 0; y < t.rows; y++ {
 		t.Dirty[y] = true
 	}
@@ -464,7 +465,7 @@ func between(val, min, max int) bool {
 func (t *State) ScrollDown(orig, n int) {
 	n = clamp(n, 0, t.bottom-orig+1)
 	t.clear(0, t.bottom-n+1, t.cols-1, t.bottom)
-	t.changed |= ChangedScreen
+	t.changed |= ScrollDown
 	for i := t.bottom; i >= orig+n; i-- {
 		t.lines[i], t.lines[i-n] = t.lines[i-n], t.lines[i]
 		t.Dirty[i] = true
@@ -477,7 +478,7 @@ func (t *State) ScrollDown(orig, n int) {
 func (t *State) ScrollUp(orig, n int) {
 	n = clamp(n, 0, t.bottom-orig+1)
 	t.clear(0, orig, t.cols-1, orig+n-1)
-	t.changed |= ChangedScreen
+	t.changed |= ScrollUp
 	for i := orig; i <= t.bottom-n; i++ {
 		t.lines[i], t.lines[i+n] = t.lines[i+n], t.lines[i]
 		t.Dirty[i] = true
@@ -575,6 +576,8 @@ func (t *State) setMode(priv bool, set bool, args []int) {
 			case 1015:
 				// urxvt mangled mouse Mode; incompatiblt and can be mistaken
 				// for other control codes
+			case 2004:
+				//Ignores vim bracketed mode
 			default:
 				t.logf("unknown private set/reset Mode %d\n", a)
 			}
@@ -680,7 +683,7 @@ func (t *State) insertBlanks(n int) {
 	src := t.Cur.x
 	dst := src + n
 	size := t.cols - dst
-	t.changed |= ChangedScreen
+	t.changed |= NewChar
 	t.Dirty[t.Cur.y] = true
 
 	if dst >= t.cols {
@@ -709,7 +712,7 @@ func (t *State) deleteChars(n int) {
 	src := t.Cur.x + n
 	dst := t.Cur.x
 	size := t.cols - src
-	t.changed |= ChangedScreen
+	t.changed |= NewChar
 	t.Dirty[t.Cur.y] = true
 
 	if src >= t.cols {

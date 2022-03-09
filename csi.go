@@ -173,9 +173,21 @@ func (t *State) handleCSI() {
 		t.saveCursor()
 	case 'u': // DECRC - restore Cursor position (ANSI.SYS)
 		t.restoreCursor()
+	case 'q': /*
+	TODO: Handle cursor block shape
+	Ps = 0,1    Block cursor / Blink
+	   = 2      Block cursor / Steady
+	   = 3      Underline cursor / Blink
+	   = 4      Underline cursor / Steady
+	   = 5      Vertical line cursor / Blink
+	   = 6      Vertical line cursor / Steady
+	*/
+	case 't': // Ignoring IME state set change
 	}
+
 	return
 unknown: // TODO: get rid of this goto
-	t.logf("unknown CSI sequence '%Char'\n", c.mode)
+	t.logf("unknown CSI sequence '%s'\n", string(c.mode))
+
 	// TODO: Char.dump()
 }
